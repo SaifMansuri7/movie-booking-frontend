@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext.jsx';
 function MyBookings() {
   const [bookings, setBookings] = useState([]);
   const [error, setError] = useState('');
+  const [cancellingId, setCancellingId] = useState(null);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -14,6 +15,21 @@ function MyBookings() {
       .then((response) => setBookings(response.data))
       .catch(() => setError('Could not load bookings.'));
   }, [user]);
+
+  const handleCancel = async (bookingId) => {
+    if (!window.confirm('Cancel this booking?')) return;
+    setCancellingId(bookingId);
+    try {
+      await api.post('/bookings/cancel/', { booking_id: bookingId });
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, status: 'cancelled' } : b))
+      );
+    } catch (err) {
+      setError('Could not cancel booking.');
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   if (!user) {
     return (
@@ -51,11 +67,38 @@ function MyBookings() {
         {bookings.map((booking) => (
           <div
             key={booking.id}
-            className="border border-gray-200 rounded-lg p-4 bg-gray-50"
+            className="border border-gray-200 rounded-lg p-4 bg-gray-50 flex items-start justify-between gap-4"
           >
-            <pre className="whitespace-pre-wrap font-mono text-xs text-gray-700 overflow-x-auto">
-              {JSON.stringify(booking, null, 2)}
-            </pre>
+            <div>
+              <h3 className="font-semibold text-gray-900">
+                {booking.show?.movie_title || `Show #${booking.show?.id ?? ''}`}
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                {booking.show?.show_datetime &&
+                  new Date(booking.show.show_datetime).toLocaleString()}
+              </p>
+              <span
+                className={`inline-block mt-2 text-xs font-medium px-2 py-0.5 rounded ${
+                  booking.status === 'cancelled'
+                    ? 'bg-red-100 text-red-700'
+                    : booking.status === 'confirmed'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-yellow-100 text-yellow-700'
+                }`}
+              >
+                {booking.status}
+              </span>
+            </div>
+
+            {booking.status !== 'cancelled' && (
+              <button
+                onClick={() => handleCancel(booking.id)}
+                disabled={cancellingId === booking.id}
+                className="text-sm px-3 py-1 rounded bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 disabled:opacity-50 shrink-0"
+              >
+                {cancellingId === booking.id ? 'Cancelling...' : 'Cancel'}
+              </button>
+            )}
           </div>
         ))}
       </div>
