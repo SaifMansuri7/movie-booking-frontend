@@ -14,11 +14,23 @@ function SeatSelection() {
 
   useEffect(() => {
     fetchSeats();
+    const interval = setInterval(fetchSeats, 4000);
+    return () => clearInterval(interval);
   }, [showId]);
 
   const fetchSeats = () => {
     api.get(`/seats/?show_id=${showId}`)
-      .then((response) => setSeats(response.data))
+      .then((response) => {
+        setSeats(response.data);
+        // If a seat we had selected got locked/booked by someone else in the
+        // meantime, drop it from our selection automatically.
+        setSelectedSeats((prevSelected) =>
+          prevSelected.filter((id) => {
+            const seat = response.data.find((s) => s.id === id);
+            return seat && seat.status === 'available';
+          })
+        );
+      })
       .catch(() => setError('Could not load seats.'));
   };
 
