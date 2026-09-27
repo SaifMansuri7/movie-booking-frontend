@@ -26,9 +26,11 @@ function MovieList() {
               <Link to="/my-bookings" className="text-purple-600 hover:underline">
                 My Bookings
               </Link>
-              <Link to="/admin/add-movie" className="text-purple-600 hover:underline">
-                Add Movie
-              </Link>
+              {user.role === 'admin' && (
+                <Link to="/admin/add-movie" className="text-purple-600 hover:underline">
+                  Add Movie
+                </Link>
+              )}
               <button
                 onClick={logout}
                 className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-700"

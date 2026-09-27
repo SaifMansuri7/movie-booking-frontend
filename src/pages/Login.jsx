@@ -15,8 +15,8 @@ function Login() {
     setError('');
     try {
       const response = await api.post('/login/', { username, password });
-      const { access, refresh } = response.data;
-      login(access, refresh, { username });
+      const { access, refresh, role } = response.data;
+      login(access, refresh, { username, role });
       navigate('/');
     } catch (err) {
       setError('Invalid username or password, or account not verified.');
