@@ -11,12 +11,32 @@ function SeatSelection() {
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [lockInfoSeatId, setLockInfoSeatId] = useState(null);
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     fetchSeats();
     const interval = setInterval(fetchSeats, 4000);
     return () => clearInterval(interval);
   }, [showId]);
+
+  // Ticks every second so the "time left" countdown on a locked seat updates live.
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, []);
+
+  const getLockRemainingSeconds = (seat) => {
+    if (!seat.locked_at) return 0;
+    const lockExpiresAt = new Date(seat.locked_at).getTime() + 5 * 60 * 1000;
+    return Math.max(0, Math.floor((lockExpiresAt - now) / 1000));
+  };
+
+  const formatMMSS = (totalSeconds) => {
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
 
   const fetchSeats = () => {
     api.get(`/seats/?show_id=${showId}`)
@@ -35,7 +55,12 @@ function SeatSelection() {
   };
 
   const toggleSeat = (seat) => {
+    if (seat.status === 'locked') {
+      setLockInfoSeatId((prev) => (prev === seat.id ? null : seat.id));
+      return;
+    }
     if (seat.status !== 'available') return;
+    setLockInfoSeatId(null);
     if (selectedSeats.includes(seat.id)) {
       setSelectedSeats(selectedSeats.filter((id) => id !== seat.id));
     } else {
@@ -89,18 +114,32 @@ function SeatSelection() {
         </p>
       )}
 
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex flex-wrap gap-3 mb-2">
         {seats.map((seat) => (
           <button
             key={seat.id}
             onClick={() => toggleSeat(seat)}
-            disabled={seat.status !== 'available' && !selectedSeats.includes(seat.id)}
+            disabled={seat.status === 'booked' && !selectedSeats.includes(seat.id)}
             className={`w-12 h-12 rounded-md border text-sm font-medium transition-colors ${seatClasses(seat)}`}
           >
             {seat.seat_number}
           </button>
         ))}
       </div>
+
+      {lockInfoSeatId && (() => {
+        const seat = seats.find((s) => s.id === lockInfoSeatId);
+        if (!seat || seat.status !== 'locked') return null;
+        const remaining = getLockRemainingSeconds(seat);
+        return (
+          <p className="mb-4 text-sm text-orange-700 bg-orange-50 border border-orange-200 rounded px-3 py-2">
+            Seat {seat.seat_number} is locked by another user.{' '}
+            {remaining > 0
+              ? `Releases in ${formatMMSS(remaining)}.`
+              : 'Should be releasing shortly — refresh to check.'}
+          </p>
+        );
+      })()}
 
       <div className="flex flex-wrap gap-3 mb-6 text-xs">
         <span className="flex items-center gap-1">
